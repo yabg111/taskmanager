@@ -1,0 +1,247 @@
+  <div class="flex flex-col h-screen overflow-hidden bg-slate-50 font-sans" dir="rtl">
+        
+    <!-- Navbar -->
+    <header class="bg-white border-b border-slate-200 h-16 flex-none z-20 shadow-sm">
+      <div class="container mx-auto px-6 h-full flex items-center justify-between">
+        <div class="flex items-center gap-3 cursor-pointer" (click)="navigate('dashboard')">
+          <div class="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
+            <i class="fas fa-layer-group text-lg"></i>
+          </div>
+          <div>
+            <h1 class="font-bold text-lg leading-none text-slate-800">Task Manager</h1>
+            <span class="text-[10px] font-bold text-blue-600 tracking-wider uppercase">Angular Engine</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs">ME</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow overflow-auto p-6 relative">
+      
+      <!-- View: Dashboard -->
+      @if (currentView() === 'dashboard') {
+        <div class="container mx-auto max-w-6xl fade-in">
+          <div class="flex justify-between items-end mb-8">
+            <div>
+              <h2 class="text-3xl font-bold text-slate-800">מרחבי עבודה</h2>
+              <p class="text-slate-500 mt-1">בחר אזור עבודה או צור אחד חדש.</p>
+            </div>
+            <button (click)="openModal('create-workspace')" class="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg hover:bg-slate-800 transition flex items-center gap-2">
+              <i class="fas fa-plus"></i> צור חדש
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            @for (ws of dataService.workspaces(); track ws.id) {
+              <div (click)="navigate('workspace', ws.id)" 
+                  class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group relative overflow-hidden">
+                <div class="flex justify-between items-start mb-4">
+                  <div [className]="'w-12 h-12 rounded-xl flex items-center justify-center text-xl ' + getThemeClass(ws.theme)">
+                    <i [className]="'fas ' + ws.icon"></i>
+                  </div>
+                </div>
+                <h3 class="font-bold text-lg text-slate-800">{{ ws.title }}</h3>
+                <p class="text-xs text-slate-500 mt-1 line-clamp-2">{{ ws.description }}</p>
+                <div class="mt-6 pt-4 border-t border-slate-50 flex justify-between items-center text-xs text-slate-400">
+                  <span>{{ (dataService.items()[ws.id] || []).length }} פריטים</span>
+                  <i class="fas fa-arrow-left opacity-0 group-hover:opacity-100 transition-opacity text-blue-500"></i>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- View: Workspace (Dynamic Table) -->
+      @if (currentView() === 'workspace' && activeWs()) {
+        <div class="container mx-auto max-w-7xl h-full flex flex-col fade-in">
+          <!-- Workspace Header -->
+          <div class="flex justify-between items-center mb-6 pb-6 border-b border-slate-200">
+            <div class="flex items-center gap-4">
+              <button (click)="navigate('dashboard')" class="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-800 hover:bg-white transition bg-slate-50">
+                <i class="fas fa-arrow-right"></i>
+              </button>
+              <div>
+                <h2 class="text-2xl font-bold text-slate-900">{{ activeWs()?.title }}</h2>
+                <p class="text-sm text-slate-500 mt-1 flex gap-2 items-center">
+                  <i class="fas fa-table"></i> תצוגה גנרית
+                  <span class="text-slate-300">|</span>
+                  {{ activeSchema().length }} עמודות מוגדרות
+                </p>
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <button (click)="openModal('builder')" class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 flex items-center gap-2">
+                <i class="fas fa-tools text-slate-400"></i> ערוך מבנה
+              </button>
+              <button (click)="openModal('add-item')" class="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-md flex items-center gap-2">
+                <i class="fas fa-plus"></i> הוסף פריט
+              </button>
+            </div>
+          </div>
+
+          <!-- The Generic Table Component -->
+          <div class="bg-white rounded-xl shadow-lg border border-slate-200 flex-grow flex flex-col overflow-hidden relative">
+            <div class="overflow-auto flex-grow custom-scrollbar">
+              <table class="w-full text-right border-collapse">
+                <thead class="bg-slate-50 sticky top-0 z-10 shadow-sm">
+                  <tr>
+                    @for (col of activeSchema(); track col.key) {
+                      <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                        <div class="flex items-center gap-2">
+                          <span [innerHTML]="getIcon(col.type)"></span> {{ col.label }}
+                        </div>
+                      </th>
+                    }
+                    <th class="px-6 py-4 border-b border-slate-200 w-16"></th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 bg-white">
+                  @for (item of activeItems(); track item.id) {
+                    <tr class="hover:bg-slate-50 transition group">
+                      @for (col of activeSchema(); track col.key) {
+                        <td class="px-6 py-4 text-sm text-slate-700 border-b border-slate-100">
+                          <!-- Dynamic Cell Rendering -->
+                          @if (col.type === 'status') {
+                            <span [className]="getStatusClass(item[col.key])">
+                              {{ item[col.key] === 'done' ? 'בוצע' : (item[col.key] === 'pending' ? 'ממתין' : item[col.key]) }}
+                            </span>
+                          } @else if (col.type === 'date') {
+                            <div class="flex items-center gap-2 text-slate-600">
+                              <i class="far fa-calendar text-xs opacity-50"></i> {{ item[col.key] }}
+                            </div>
+                          } @else if (col.type === 'number') {
+                            <span class="font-mono font-bold">{{ item[col.key] | number }}</span>
+                          } @else {
+                            {{ item[col.key] || '-' }}
+                          }
+                        </td>
+                      }
+                      <td class="px-6 py-4 text-left border-b border-slate-100">
+                        <button (click)="deleteItem(item.id)" class="text-slate-300 hover:text-red-500 p-2 rounded transition">
+                          <i class="fas fa-trash-alt"></i>
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                  @if (activeItems().length === 0) {
+                    <tr>
+                      <td [attr.colspan]="activeSchema().length + 1" class="p-12 text-center text-slate-400">
+                        <div class="mb-2 text-2xl"><i class="far fa-folder-open"></i></div>
+                        אין פריטים להצגה
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      }
+    </main>
+
+    <!-- Modals Layer -->
+    @if (modalState().isOpen) {
+      <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 fade-in" (click)="closeModal()">
+        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden" (click)="$event.stopPropagation()">
+          
+          <!-- Modal: Create Workspace -->
+          @if (modalState().type === 'create-workspace') {
+            <div class="p-6">
+              <h3 class="text-xl font-bold text-slate-800 mb-4">יצירת מרחב עבודה</h3>
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-xs font-bold text-slate-500 uppercase mb-1">שם המרחב</label>
+                  <input #wsTitle type="text" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none" placeholder="לדוגמה: פרויקט סיום">
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-500 uppercase mb-1">תיאור</label>
+                  <input #wsDesc type="text" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none">
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-500 uppercase mb-1">נושא (Theme)</label>
+                  <select #wsTheme class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                    <option value="purple">סגול (בית)</option>
+                    <option value="green">ירוק (כספים)</option>
+                    <option value="blue">כחול (עבודה)</option>
+                  </select>
+                </div>
+              </div>
+              <div class="mt-6 flex justify-end gap-2">
+                <button (click)="closeModal()" class="px-4 py-2 text-slate-500 font-bold text-sm">ביטול</button>
+                <button (click)="createWorkspace(wsTitle.value, wsDesc.value, wsTheme.value)" class="bg-slate-900 text-white px-6 py-2 rounded-lg font-bold text-sm">צור</button>
+              </div>
+            </div>
+          }
+
+          <!-- Modal: Add Item (Dynamic Form) -->
+          @if (modalState().type === 'add-item' && activeWs()) {
+            <div class="flex flex-col max-h-[80vh]">
+              <div class="p-6 border-b border-slate-100">
+                <h3 class="text-xl font-bold text-slate-800">הוספת פריט חדש</h3>
+              </div>
+              <div class="p-6 overflow-y-auto space-y-4 bg-slate-50/50">
+                <form [formGroup]="dynamicForm">
+                    @for (col of activeSchema(); track col.key) {
+                      <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1 flex items-center gap-1">
+                          <span [innerHTML]="getIcon(col.type)"></span> {{ col.label }}
+                        </label>
+                        
+                        @if (col.type === 'select' || col.type === 'status') {
+                          <select [formControlName]="col.key" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                            @for (opt of (col.options || ['ממתין', 'בוצע']); track opt) {
+                              <option [value]="opt">{{ opt }}</option>
+                            }
+                          </select>
+                        } @else {
+                          <input [type]="col.type === 'number' ? 'number' : (col.type === 'date' ? 'date' : 'text')" 
+                                  [formControlName]="col.key" 
+                                  class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none">
+                        }
+                      </div>
+                    }
+                </form>
+              </div>
+              <div class="p-4 border-t border-slate-100 flex justify-end gap-2 bg-white">
+                <button (click)="closeModal()" class="px-4 py-2 text-slate-500 font-bold text-sm">ביטול</button>
+                <button (click)="saveNewItem()" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold text-sm hover:bg-blue-700">שמור</button>
+              </div>
+            </div>
+          }
+
+          <!-- Modal: Builder (Add Column) -->
+          @if (modalState().type === 'builder' && activeWs()) {
+            <div class="p-6">
+              <h3 class="text-xl font-bold text-slate-800 mb-4">הוספת עמודה למבנה</h3>
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-xs font-bold text-slate-500 uppercase mb-1">שם העמודה</label>
+                  <input #colLabel type="text" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-500 uppercase mb-1">סוג נתונים</label>
+                  <select #colType class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                    <option value="text">טקסט חופשי</option>
+                    <option value="number">מספר</option>
+                    <option value="date">תאריך</option>
+                    <option value="select">רשימת בחירה</option>
+                    <option value="status">סטטוס</option>
+                  </select>
+                </div>
+              </div>
+              <div class="mt-6 flex justify-end gap-2">
+                <button (click)="closeModal()" class="px-4 py-2 text-slate-500 font-bold text-sm">ביטול</button>
+                <button (click)="addColumn(colLabel.value, colType.value)" class="bg-slate-800 text-white px-6 py-2 rounded-lg font-bold text-sm">הוסף עמודה</button>
+              </div>
+            </div>
+          }
+
+        </div>
+      </div>
+    }
+
+  </div>
