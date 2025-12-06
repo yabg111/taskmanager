@@ -1,0 +1,2 @@
+INDEX VERSION 1.134+/Users/yosfab/dev/taskmanager/.metadata/.plugins/org.eclipse.jdt.core
+1424137999.index
